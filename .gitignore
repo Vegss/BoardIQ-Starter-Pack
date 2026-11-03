@@ -41,6 +41,11 @@ lerna-debug.log*
 .eslintcache
 coverage/
 
+# Local Codex working artifacts (generated previews, exports, and session state)
+.codex-build/
+.codex-finalizer/
+.codex-output/
+
 # Docker and local development
 *.log
 .docker/
