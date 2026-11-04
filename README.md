@@ -1,6 +1,6 @@
 # BoardIQ Prototype Sandbox
 
-This is a friendly starting point for board members building a small product prototype with an AI coding assistant. It includes a Next.js frontend, a FastAPI backend, an optional Supabase database connection, and Docker so the setup stays consistent.
+This is a friendly starting point for board members building a small product prototype with an AI coding assistant. It uses one Next.js application called `my-prototype` for both the website and server-side API routes, with an optional Supabase database connection.
 
 ## Start with your AI assistant
 
@@ -8,9 +8,9 @@ Before starting, install **Git** and **Docker Desktop**. They are required. Then
 
 Open this project in your AI coding assistant and say: **“Please start the BoardIQ setup.”** The repository already includes the complete setup brief in `SETUP_FOR_AI.md`; Codex reads it through `AGENTS.md`. The assistant should handle Git, Docker, configuration, database updates, and troubleshooting while you only sign in and enter private values in the correct private screens.
 
-You will need a GitHub account and a Supabase project for the first working version. Create Railway and Vercel accounts later, after the local prototype works. Use GitHub sign-in for those providers where available.
+You will need a GitHub account, a Supabase project, and a Vercel account for the first deployed version. Use GitHub sign-in when the provider offers it.
 
-The homepage shows whether the frontend, backend, and Supabase connection are ready. A missing Supabase connection is okay—you can start designing before you add data.
+The homepage shows whether `my-prototype` and its Supabase connection are ready. A missing Supabase connection is okay—you can start designing before you add data.
 
 ## AI and developer reference
 
@@ -25,14 +25,14 @@ bash save.sh "Describe what you changed"
 bash migrate.sh
 ```
 
-Your frontend is at [http://localhost:3000](http://localhost:3000). The backend health page is at [http://localhost:8000/health](http://localhost:8000/health).
+Your local prototype is at [http://localhost:3000](http://localhost:3000). Its built-in health check is at [http://localhost:3000/api/health](http://localhost:3000/api/health).
 
-## Deploying later
+## Deploying to Vercel
 
-The backend is prepared for Railway via `railway.json`. On every Railway deployment it applies the SQL files in `supabase/migrations/` before starting the API. Add `SUPABASE_DB_URL` to Railway using the connection string from Supabase **Connect** (the Session pooler is suitable); it is used only by the migration runner and never exposed to the browser. If the variable is not configured yet, deployment continues and prints that migrations were skipped.
+Import this repository into Vercel and set its **Root Directory** to `frontend`. In Vercel's private Environment Variables page, add `SUPABASE_URL`, `SUPABASE_KEY`, and `SUPABASE_DB_URL`. The app reads the first two values only in server-side Next.js routes. The database URL is used only while Vercel applies pending migrations before a production build. None of these values belong in browser code or GitHub.
 
-To apply the same migrations locally, run `bash migrate.sh`. This uses the backend's Docker image, so you do not need to install Python or database tools on your computer. When you add a new database feature, create one timestamped `.sql` file in `supabase/migrations/` and run this command before deploying.
+To apply the same migrations locally, run `bash migrate.sh`. This uses the `my-prototype` Docker image, so you do not need to install database tools on your computer. When you add a database feature, create one timestamped `.sql` file in `supabase/migrations/` and run this command before deploying.
 
-When you deploy the frontend to Vercel, set `NEXT_PUBLIC_API_URL` to the public URL of the Railway backend and add your Vercel URL to the backend's `CORS_ORIGINS`. If those services are connected to GitHub, `bash save.sh` will trigger their usual automatic deployment.
+When Vercel is connected to GitHub, `bash save.sh` triggers the normal Vercel deployment.
 
 Keep `.env` private: it contains your local Supabase connection details and is already ignored by Git.

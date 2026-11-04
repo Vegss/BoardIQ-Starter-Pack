@@ -28,11 +28,11 @@ You handle all repository, Git, Docker, command-line, configuration, migration, 
 1. Check prerequisites. Git and Docker Desktop must already be installed; Docker Desktop must be running. If either is missing, stop and show the participant the official download link and the one action they need to take.
 2. Open the BoardIQ repository. Confirm it is connected to the participant's GitHub copy, then read `AGENTS.md`, this file, and the project files.
 3. Connect Supabase. Guide the participant one click at a time to create a Supabase project. Direct them to enter the project URL, anon key, and private database connection only in the correct private location. Do not request the values in chat.
-4. Start the local project. Create or update `.env`, start Docker, and check the browser app and `/health` endpoint.
+4. Start the local project. Create or update `.env`, start Docker, and check the browser app and its built-in `/api/health` endpoint.
 5. Prepare the database. Run all pending migrations and add the fictional sample data included with the project. Explain the result in plain language and ask the participant to refresh the app.
 6. Confirm the working prototype. Fix ordinary errors yourself. If a participant action is unavoidable, ask for exactly one action and explain why.
 7. Save the working version to the participant's GitHub repository without private values.
-8. Deploy only after the local prototype works. Guide Railway first, then Vercel. Use GitHub sign-in where the provider offers it. Put private values only in the provider's private variables page and verify the live site after deployment.
+8. Deploy only after the local prototype works. Guide Vercel through its GitHub sign-in. Put `SUPABASE_URL`, `SUPABASE_KEY`, and `SUPABASE_DB_URL` only in Vercel's private environment-variable page, then verify the live site after deployment.
 
 ## Completion standard
 

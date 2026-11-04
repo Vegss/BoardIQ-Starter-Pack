@@ -5,11 +5,9 @@ import { useEffect, useState } from "react";
 type ConnectionState = "checking" | "connected" | "needs-setup" | "unavailable";
 
 type HealthResponse = {
-  backend?: { running?: boolean };
+  application?: { running?: boolean };
   supabase?: { configured?: boolean; reachable?: boolean; message?: string };
 };
-
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 function StatusCard({
   name,
@@ -42,9 +40,9 @@ function StatusCard({
 }
 
 export default function Home() {
-  const [backendState, setBackendState] = useState<ConnectionState>("checking");
+  const [applicationState, setApplicationState] = useState<ConnectionState>("checking");
   const [databaseState, setDatabaseState] = useState<ConnectionState>("checking");
-  const [backendDetail, setBackendDetail] = useState("Checking the local API…");
+  const [applicationDetail, setApplicationDetail] = useState("Checking this Next.js app…");
   const [databaseDetail, setDatabaseDetail] = useState("Checking Supabase setup…");
 
   useEffect(() => {
@@ -52,18 +50,18 @@ export default function Home() {
 
     async function checkConnections() {
       try {
-        const response = await fetch(`${apiUrl}/health`, {
+        const response = await fetch("/api/health", {
           cache: "no-store",
           signal: controller.signal,
         });
-        if (!response.ok) throw new Error("The API returned an error.");
+        if (!response.ok) throw new Error("The app returned an error.");
 
         const health: HealthResponse = await response.json();
-        setBackendState(health.backend?.running ? "connected" : "unavailable");
-        setBackendDetail(
-          health.backend?.running
-            ? `Connected to the BoardIQ API at ${apiUrl}.`
-            : "The API responded, but did not report itself as ready.",
+        setApplicationState(health.application?.running ? "connected" : "unavailable");
+        setApplicationDetail(
+          health.application?.running
+            ? "This Next.js app and its built-in API are ready."
+            : "The app responded, but did not report itself as ready.",
         );
 
         if (health.supabase?.reachable) {
@@ -76,10 +74,10 @@ export default function Home() {
         setDatabaseDetail(health.supabase?.message ?? "Supabase status is unavailable.");
       } catch (error) {
         if (controller.signal.aborted) return;
-        setBackendState("unavailable");
+        setApplicationState("unavailable");
         setDatabaseState("unavailable");
-        setBackendDetail(`We could not reach the API at ${apiUrl}. Start Docker Desktop, then run bash setup.sh.`);
-        setDatabaseDetail("Supabase will be checked once the API is running.");
+        setApplicationDetail("We could not reach the app. Ask your AI assistant to continue the BoardIQ setup.");
+        setDatabaseDetail("Supabase will be checked once the app is running.");
       }
     }
 
@@ -95,14 +93,13 @@ export default function Home() {
         <p className="mt-4 max-w-xl text-lg leading-8 text-slate-600">
           Describe the board tool you want to create to your AI assistant. These checks show whether your building blocks are connected.
         </p>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          <StatusCard name="Frontend" state="connected" detail="This BoardIQ page is open and ready for your idea." />
-          <StatusCard name="Backend" state={backendState} detail={backendDetail} />
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <StatusCard name="My prototype" state={applicationState} detail={applicationDetail} />
           <StatusCard name="Supabase Database" state={databaseState} detail={databaseDetail} />
         </div>
         {databaseState === "needs-setup" && (
           <p className="mt-6 rounded-lg bg-white p-4 text-sm leading-6 text-slate-600 shadow-sm ring-1 ring-slate-200">
-            To connect a database, run <code className="rounded bg-slate-100 px-1.5 py-0.5 font-medium">bash setup.sh</code> in this project folder and paste your Supabase project URL and anon key when asked.
+            Ask your AI assistant to continue the BoardIQ setup. It will guide you to enter your Supabase project details in the right private place.
           </p>
         )}
       </div>

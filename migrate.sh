@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Run the same Supabase migration runner used by Railway, without requiring
-# Python or a database client on the host computer.
+# Run the same Supabase migration runner used during Vercel builds, without
+# requiring a database client on the host computer.
 set -eu
 
 project_dir="$(cd "$(dirname "$0")" && pwd)"
@@ -13,8 +13,5 @@ if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
 fi
 
 docker compose run --rm --no-deps \
-  -v "$project_dir/scripts:/workspace/scripts:ro" \
-  -v "$project_dir/supabase:/workspace/supabase:ro" \
-  -e MIGRATIONS_DIR=/workspace/supabase/migrations \
-  backend \
-  python /workspace/scripts/run_migrations.py
+  my-prototype \
+  npm run migrate

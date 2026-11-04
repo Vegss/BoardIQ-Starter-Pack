@@ -70,20 +70,31 @@ ensure_env_value() {
   fi
 }
 
+remove_env_value() {
+  variable_name="$1"
+  [ -f .env ] || return 0
+
+  temporary_file="$(mktemp "${TMPDIR:-/tmp}/boardiq-env.XXXXXX")"
+  umask 077
+  grep -v "^${variable_name}=" .env > "$temporary_file" || true
+  mv "$temporary_file" .env
+}
+
 supabase_url="$(ask_for_value SUPABASE_URL "project URL")"
 supabase_key="$(ask_for_value SUPABASE_KEY "anon public key")"
 supabase_db_url="$(ask_for_value SUPABASE_DB_URL "private database connection from Supabase Connect")"
 set_env_value SUPABASE_URL "$supabase_url"
 set_env_value SUPABASE_KEY "$supabase_key"
 set_env_value SUPABASE_DB_URL "$supabase_db_url"
-ensure_env_value CORS_ORIGINS "http://localhost:3000"
-ensure_env_value NEXT_PUBLIC_API_URL "http://localhost:8000"
-ensure_env_value BACKEND_URL "http://backend:8000"
-ensure_env_value PORT "8000"
-
+# Remove values from the old two-service setup. Keeping PORT=8000 would make
+# Next.js listen on the wrong port inside Docker.
+remove_env_value CORS_ORIGINS
+remove_env_value NEXT_PUBLIC_API_URL
+remove_env_value BACKEND_URL
+remove_env_value PORT
 echo ""
 echo "Starting your BoardIQ workspace. The first start can take a few minutes."
-docker compose up --build -d
+docker compose up --build -d my-prototype
 echo "Preparing the BoardIQ sample database."
 bash migrate.sh
 echo ""

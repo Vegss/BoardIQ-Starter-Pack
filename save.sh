@@ -28,4 +28,4 @@ git push --set-upstream origin "$branch"
 
 echo ""
 echo "Your code is safely backed up to GitHub."
-echo "If Railway or Vercel is connected to this repository, your live prototype should update in about a minute."
+echo "If Vercel is connected to this repository, your live prototype should update in about a minute."

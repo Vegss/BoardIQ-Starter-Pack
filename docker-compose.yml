@@ -1,41 +1,21 @@
 services:
-  backend:
-    build:
-      context: ./backend
-    ports:
-      - "8000:8000"
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      PORT: "8000"
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-    volumes:
-      - ./backend:/app
-    command: sh -c 'uvicorn app.main:app --host 0.0.0.0 --port "$${PORT:-8000}" --reload'
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 5s
-
-  frontend:
+  my-prototype:
     build:
       context: ./frontend
     ports:
       - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
     environment:
-      BACKEND_URL: ${BACKEND_URL:-http://backend:8000}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      PORT: "3000"
       WATCHPACK_POLLING: "true"
+      MIGRATIONS_DIR: /supabase/migrations
     volumes:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
+      - ./supabase:/supabase:ro
     # The mounted node_modules volume persists between rebuilds. Refresh it before
     # development starts so package changes made during a workshop take effect.
     command: sh -c 'npm install && npm run dev -- --hostname 0.0.0.0'
-    depends_on:
-      backend:
-        condition: service_healthy
