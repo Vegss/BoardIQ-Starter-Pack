@@ -1,40 +1,56 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import "server-only";
 
-const placeholderValues = new Set([
-  "",
-  "your_supabase_url",
-  "your_supabase_key",
-  "paste-your-supabase-url-here",
-  "paste-your-anon-key-here",
-]);
+import { createClient } from "@supabase/supabase-js";
+import { prototypeSchema } from "../prototype-config.mjs";
 
-function usable(value: string | undefined) {
-  return Boolean(value && !placeholderValues.has(value.trim().toLowerCase()));
-}
+let cachedBucket: ReturnType<ReturnType<typeof createClient>["storage"]["from"]> | undefined;
+let expiresAt = 0;
+let login: Promise<NonNullable<typeof cachedBucket>> | undefined;
 
-export function supabaseConfiguration() {
-  const url = process.env.SUPABASE_URL?.trim();
-  const key = process.env.SUPABASE_KEY?.trim();
-
+export function storageConfiguration() {
   return {
-    configured: usable(url) && usable(key),
-    url,
-    key,
+    configured: Boolean(
+      process.env.SUPABASE_URL && process.env.SUPABASE_KEY &&
+      process.env.SUPABASE_STORAGE_EMAIL && process.env.SUPABASE_STORAGE_PASSWORD &&
+      process.env.SUPABASE_STORAGE_BUCKET,
+    ),
+    bucket: process.env.SUPABASE_STORAGE_BUCKET,
   };
 }
 
-/**
- * Use this helper from Next.js route handlers and Server Components only.
- * It keeps Supabase access on the server and out of browser code.
- */
-export function getSupabaseServerClient(): SupabaseClient {
-  const { configured, url, key } = supabaseConfiguration();
-
-  if (!configured || !url || !key) {
-    throw new Error("Supabase is not configured. Add SUPABASE_URL and SUPABASE_KEY to .env.");
+/** Storage only. Database queries belong in lib/database/server.ts. */
+export async function getPrototypeStorage() {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY) {
+    throw new Error("Administrator API keys belong in .env.admin, not participant runtime settings.");
   }
+  const { configured, bucket } = storageConfiguration();
+  if (!configured || !bucket) throw new Error("Import the private prototype configuration before using files.");
+  const key = process.env.SUPABASE_KEY!;
+  if (!key.startsWith("sb_publishable_")) throw new Error("Storage requires the publishable key, not an administrator key.");
+  if (cachedBucket && Date.now() < expiresAt - 60_000) return cachedBucket;
+  if (login) return login;
+  login = signInToStorage(bucket, key);
+  try {
+    return await login;
+  } finally {
+    login = undefined;
+  }
+}
 
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
+async function signInToStorage(bucket: string, key: string) {
+  const client = createClient(process.env.SUPABASE_URL!, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
+  const { data, error } = await client.auth.signInWithPassword({
+    email: process.env.SUPABASE_STORAGE_EMAIL!,
+    password: process.env.SUPABASE_STORAGE_PASSWORD!,
+  });
+  if (error) throw new Error("The prototype storage login was rejected. Ask the workshop organiser to check its access.");
+  const claims = JSON.parse(Buffer.from(data.session!.access_token.split('.')[1], 'base64url').toString());
+  if (claims.role !== `${prototypeSchema()}_storage`) {
+    throw new Error("The storage account must use its assigned restricted role.");
+  }
+  expiresAt = (data.session!.expires_at ?? 0) * 1_000;
+  cachedBucket = client.storage.from(bucket);
+  return cachedBucket;
 }

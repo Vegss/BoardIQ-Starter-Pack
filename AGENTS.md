@@ -1,73 +1,49 @@
 # BoardIQ workshop instructions
 
-You are helping a non-technical board member turn a product idea into a working prototype. Be an active, calm implementation partner: use plain language, avoid unexplained jargon, keep progress updates brief, and proactively inspect files, run commands, edit code, and resolve ordinary errors. Explain only the decision the participant needs to make.
+Help a non-technical board member build a prototype. Be an active, calm implementation partner: inspect files, run commands, edit code and resolve ordinary errors. Use plain language and brief updates. Do not use test-driven development or write tests unless explicitly asked.
 
 ## First-time setup
 
-When working in a fresh BoardIQ copy, read and follow `SETUP_FOR_AI.md` before taking other implementation steps. It is the participant's built-in setup brief: do not ask them to copy or restate it. The participant should only need to sign in, approve browser or security prompts, and enter private values in approved private settings. You handle Git, Docker, commands, configuration files, database updates, and ordinary troubleshooting.
+Read `SETUP_FOR_AI.md` before implementation. Participants sign in, approve prompts and enter private values in approved settings; you handle commands, Git, Docker, migrations and troubleshooting. They receive a private configuration from the organiser and do not create Supabase projects.
 
 ## Project map
 
-This repository has one service and no direct browser-to-database access:
+- `frontend/` is Next.js 15 / React 19. Landing page: `frontend/app/page.tsx`; server routes: `frontend/app/api/`.
+- Keep Docker service `my-prototype` and internal port 3000. Local browser port defaults to 3000; `BOARDIQ_PORT` in `.env` may override it when requested. This workspace uses 3003 to leave existing apps running.
+- `.env` contains participant settings. `.env.admin` is team-only. `.boardiq-private/` contains generated participant files. All are ignored by Git.
+- `.env.example` lists all participant variables; `.env.admin.example` lists organiser variables.
+- `frontend/lib/database/server.ts` provides server-only PostgreSQL queries.
+- `frontend/lib/supabase/server.ts` provides server-only access to the assigned Storage bucket.
 
-- `frontend/` is a Next.js 15 / React 19 application. Its landing page is `frontend/app/page.tsx`; API routes live under `frontend/app/api/`; it runs on `http://localhost:3000`.
-- `docker-compose.yml` defines one service named `my-prototype`, published on port `3000:3000`. Keep that service name and port unless the participant specifically requests a change.
-- `.env` is local-only and ignored by Git. `.env.example` documents every supported environment variable.
-- `frontend/lib/supabase/server.ts` creates server-only Supabase clients. API routes and Server Components may use it; browser code must not.
+All browser data/file requests go through same-origin Next.js `/api/...` routes. Never introduce browser-to-Supabase calls or expose database, storage-password or administrator credentials.
 
-All product data access must go through Next.js server routes or Server Components. Browser code must call same-origin `/api/...` routes, never Supabase directly and never with `SUPABASE_KEY`.
+## Shared project isolation
 
-## Environment and connection conventions
+Every prototype has its own `prototype_...` schema and matching restricted database login. Never use `public` for product data, provisioning metadata or migration records. Never use an administrator connection for a participant app. `queryDatabase()` verifies the role and selects the assigned schema inside each transaction; schema selection alone is not an access-control boundary.
 
-- `SUPABASE_URL` and `SUPABASE_KEY` are read only by Next.js server code. The key is the Supabase anon public key for this workshop.
-- `SUPABASE_DB_URL` is a server-only PostgreSQL connection string used by the migration runner. It must be set in Vercel for migrations to apply during deployment; never expose it to browser code.
+All product schema changes belong in new timestamped SQL files directly under `supabase/migrations/`. Use unqualified product table names so each prototype receives the same migration in its own schema. Never edit a migration that may have been applied. The runner refuses public/system schemas and administrator logins, and stores the ledger separately in each assigned schema.
 
-## Supabase migrations
+`supabase/migrations/provisioning/` contains administrator-only SQL templates. The participant migration runner ignores this subdirectory. Provisioning changes Supabase Storage permissions in the existing `storage` schema; it does not create product tables there. The SQL `PUBLIC` role is not the `public` schema.
 
-- Store every schema change in a new timestamped SQL file under `supabase/migrations/` (for example, `20261103103000_create_decisions.sql`). Do not edit a migration that may already have been applied.
-- Vercel runs `npm run migrate` before every production build. It applies each pending SQL file once and records its checksum. If `SUPABASE_DB_URL` is absent, it clearly reports that migrations were skipped so the app can still be deployed without Supabase.
-- The obvious local command is `bash migrate.sh`. It runs the same migration runner in the `my-prototype` Docker image; no local PostgreSQL client is needed.
+Prototype schemas are not exposed through the Supabase Data API and are accessible only to their restricted database role. Do not grant `anon`, `authenticated` or `PUBLIC` access to them. For this fictional workshop setup, tables owned by the prototype role may keep RLS disabled; never carry that assumption into an app for real board or personal data.
 
-The app deliberately starts even when Supabase values are missing. `/api/health` tells the homepage whether the database is unconfigured, connected, or unavailable.
+Storage uses a separate technical Auth identity and a custom restricted PostgreSQL Storage role per prototype, assigned with the administrator API. It never uses the shared authenticated role. Bucket policies also restrict its access. End-user permissions inside a prototype require their own application authentication. Use the Storage API for bucket/file operations; never manipulate Storage metadata rows directly.
 
-## Working commands
+## Environment
 
-Start a workshop checkout with:
+Participant settings: `SUPABASE_URL`, `SUPABASE_KEY` (publishable), `SUPABASE_DB_URL` (restricted), `SUPABASE_SCHEMA`, `SUPABASE_STORAGE_BUCKET`, `SUPABASE_STORAGE_EMAIL`, `SUPABASE_STORAGE_PASSWORD`. These remain server-only and must be set in Vercel private settings.
 
-```bash
-bash setup.sh
-```
+Team settings in `.env.admin`: project URL, publishable key, `SUPABASE_SERVICE_ROLE_KEY`, administrator `SUPABASE_DB_URL`. Never load `.env.admin` into a participant service or distribute it. Its DB connection and API key must refer to the same project. `BOARDIQ_PORT` is a local-only browser-port override, not a Vercel setting.
 
-This creates or updates `.env`, asks for the three required Supabase values if absent, and starts Docker. A developer can also use:
+## Commands
 
-```bash
-docker compose up --build -d
-```
+- Participant start/import: `bash setup.sh /private/path/prototype.env`; later `bash setup.sh`.
+- Organiser provisioning: `bash provision.sh workshop-name`.
+- Apply product migrations: `bash migrate.sh`.
+- Rebuild after package changes: `docker compose up --build -d my-prototype`.
+- Logs: `docker compose logs -f`; stop: `docker compose down`.
+- Save: `bash save.sh "Describe the change"`.
 
-Watch logs with `docker compose logs -f`. Stop the local stack with `docker compose down`.
+Vercel runs `npm run migrate` before building. Missing DB settings cause an explicit migration skip so design-only prototypes can deploy. Live source edits reload through mounts; restarting the service refreshes mounted dependencies.
 
-When adding a package, edit `frontend/package.json` through the appropriate package command, then rebuild the service:
-
-```bash
-docker compose up --build -d my-prototype
-```
-
-Live source edits reload through Compose mounts. The frontend refreshes its mounted dependencies whenever that service starts, so dependency changes need only the service rebuild above. Save the participant's work with:
-
-```bash
-bash save.sh "Describe the change"
-```
-
-## Database changes for workshop prototypes
-
-When a feature needs a new table, column, or fictional sample data, create a new timestamped SQL migration in `supabase/migrations/`. Include the schema change and useful fictional seed data so the prototype works immediately. Run the project's migration process yourself once `SUPABASE_DB_URL` is available. Do not ask a workshop participant to use the Supabase SQL Editor or a terminal unless the project migration process is blocked and there is no safe alternative.
-
-For isolated workshop/demo tables containing only fictional, non-sensitive data and no authentication, include `ALTER TABLE ... DISABLE ROW LEVEL SECURITY;` in that SQL block to prevent RLS from blocking the prototype. Never suggest this for real board data, personal data, or an application that will be used outside the workshop; use scoped RLS policies there instead.
-
-## Guardrails
-
-- Inspect existing code before changing it and preserve its patterns.
-- Do not commit `.env`, Supabase keys, or other credentials.
-- Do not introduce a database call in browser code.
-- Do not use test-driven development or create tests unless the participant explicitly asks.
-- After meaningful changes, explain what was changed and give the participant one simple next action.
+After meaningful changes, briefly explain the result and give one simple next action. Never commit credentials. Do not request passwords or connection strings in chat.

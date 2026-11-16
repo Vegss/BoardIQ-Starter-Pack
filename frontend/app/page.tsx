@@ -99,7 +99,7 @@ export default function Home() {
         </div>
         {databaseState === "needs-setup" && (
           <p className="mt-6 rounded-lg bg-white p-4 text-sm leading-6 text-slate-600 shadow-sm ring-1 ring-slate-200">
-            Ask your AI assistant to continue the BoardIQ setup. It will guide you to enter your Supabase project details in the right private place.
+            Ask your AI assistant to continue the BoardIQ setup using the private configuration supplied by your workshop organiser.
           </p>
         )}
       </div>

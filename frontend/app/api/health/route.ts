@@ -1,33 +1,25 @@
 import { NextResponse } from "next/server";
 
-import { supabaseConfiguration } from "../../../lib/supabase/server";
+import { databaseConfiguration, queryDatabase } from "../../../lib/database/server";
+import { storageConfiguration } from "../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const { configured, url, key } = supabaseConfiguration();
+  const { configured } = databaseConfiguration();
   const supabase = {
     configured,
     reachable: false,
-    message: "Add SUPABASE_URL and SUPABASE_KEY to .env to connect a database.",
+    message: "Import the private configuration supplied by your workshop organiser to connect your database.",
   };
 
-  if (configured && url && key) {
+  if (configured) {
     try {
-      const response = await fetch(`${url.replace(/\/$/, "")}/rest/v1/`, {
-        headers: { apikey: key },
-        cache: "no-store",
-        signal: AbortSignal.timeout(5_000),
-      });
-
-      if (response.ok) {
-        supabase.reachable = true;
-        supabase.message = "Supabase is connected.";
-      } else {
-        supabase.message = "Supabase responded, but rejected the connection details.";
-      }
+      await queryDatabase("SELECT 1");
+      supabase.reachable = true;
+      supabase.message = "Your prototype database is connected.";
     } catch {
-      supabase.message = "Supabase could not be reached. Check the URL, key, and internet connection.";
+      supabase.message = "Your prototype database could not be reached. Ask your AI assistant to check its private configuration.";
     }
   }
 
@@ -35,5 +27,6 @@ export async function GET() {
     status: "ok",
     application: { running: true, service: "my-prototype" },
     supabase,
+    storage: { configured: storageConfiguration().configured },
   });
 }

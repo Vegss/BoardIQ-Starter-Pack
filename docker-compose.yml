@@ -3,7 +3,7 @@ services:
     build:
       context: ./frontend
     ports:
-      - "3000:3000"
+      - "${BOARDIQ_PORT:-3000}:3000"
     env_file:
       - path: .env
         required: false

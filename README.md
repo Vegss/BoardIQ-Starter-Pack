@@ -1,38 +1,47 @@
 # BoardIQ Prototype Sandbox
 
-This is a friendly starting point for board members building a small product prototype with an AI coding assistant. It uses one Next.js application called `my-prototype` for both the website and server-side API routes, with an optional Supabase database connection.
+Build a workshop prototype with one Next.js application named `my-prototype`. BoardIQ provides an assigned private database schema and a private file bucket in its shared Supabase project. Participants do not create Supabase projects.
 
 ## Start with your AI assistant
 
-Before starting, install **Git** and **Docker Desktop**. They are required. Then open Docker Desktop and wait until it is running.
+Install Git and Docker Desktop, then open Docker Desktop. Open this project in your assistant and say **“Please start the BoardIQ setup.”** Give the assistant the location of the private configuration file supplied by the workshop organiser; never paste its contents into chat.
 
-Open this project in your AI coding assistant and say: **“Please start the BoardIQ setup.”** The repository already includes the complete setup brief in `SETUP_FOR_AI.md`; Codex reads it through `AGENTS.md`. The assistant should handle Git, Docker, configuration, database updates, and troubleshooting while you only sign in and enter private values in the correct private screens.
-
-You will need a GitHub account, a Supabase project, and a Vercel account for the first deployed version. Use GitHub sign-in when the provider offers it.
-
-The homepage shows whether `my-prototype` and its Supabase connection are ready. A missing Supabase connection is okay—you can start designing before you add data.
-
-## AI and developer reference
+The assistant imports the configuration, starts the app and applies migrations. You only sign in to GitHub/Vercel, approve prompts and enter private values in approved private settings.
 
 ```bash
-# Start (or restart) your local workspace
-bash setup.sh
-
-# Save your changes to GitHub
-bash save.sh "Describe what you changed"
-
-# Apply the Supabase project updates
+bash setup.sh /private/path/my-prototype.env
+bash save.sh "Describe your change"
 bash migrate.sh
 ```
 
-Your local prototype is at [http://localhost:3000](http://localhost:3000). Its built-in health check is at [http://localhost:3000/api/health](http://localhost:3000/api/health).
+The application remains usable for design without database settings. Default local app: [http://localhost:3000](http://localhost:3000). Health check: `/api/health`. If another app uses port 3000, choose a free port with `BOARDIQ_PORT` in the local `.env`. This workspace uses `BOARDIQ_PORT=3003` and opens at [http://localhost:3003](http://localhost:3003). This local port setting does not go into Vercel.
+
+## Organiser setup
+
+Keep administrator credentials in `.env.admin`, using `.env.admin.example` as the template. This file is ignored by Git and is not loaded into the participant app. Use the same Supabase project for the URL, publishable key, administrator API key and administrator PostgreSQL connection. The Session pooler connection works on IPv4 workshop networks.
+
+```bash
+bash provision.sh workshop-name
+```
+
+This creates a random `prototype_...` schema and matching restricted PostgreSQL login, a technical Supabase Auth account with its own restricted Storage role and a private file bucket. The credentials are written to `.boardiq-private/workshop-name.env`, which is also ignored by Git. Give only that participant file to its intended recipient through a private channel; never distribute `.env.admin`.
+
+Provisioning is a team command, never a Vercel build step. It checks inherited privileges for both the database and Storage roles and refuses to issue credentials if those could expose unrelated application data. It does not revoke existing project privileges automatically. The technical account receives its custom role directly through the administrator API, so it does not inherit the shared authenticated role. Storage policies restrict both the assigned bucket and the technical account, including when other permissive policies exist. Bucket files are limited to 10 MB and common image, PDF and text formats. Storage capacity and bandwidth remain shared.
+
+No product tables, provisioning metadata or migration records are created in `public`. Supabase continues using its own `auth` and `storage` schemas. The `PUBLIC` role in SQL grants/policies means all roles; it is unrelated to the `public` schema.
+
+## Building features
+
+Browser code calls same-origin `/api/...` routes. Server routes and Server Components query the database through `frontend/lib/database/server.ts`, which verifies the restricted role and uses the assigned schema. Product SQL belongs in new timestamped files in `supabase/migrations/`. Use unqualified product table names; the runner selects the assigned schema and stores its migration ledger there. Never switch to another schema or use an administrator connection.
+
+For files, server routes call `await getPrototypeStorage()` from `frontend/lib/supabase/server.ts`. It signs in using the prototype's technical storage account and returns its assigned bucket client. Add app-level authentication if prototype end users need different access; the technical account separates prototypes, not users within one prototype. Workshop data must remain fictional.
 
 ## Deploying to Vercel
 
-Import this repository into Vercel and set its **Root Directory** to `frontend`. In Vercel's private Environment Variables page, add `SUPABASE_URL`, `SUPABASE_KEY`, and `SUPABASE_DB_URL`. The app reads the first two values only in server-side Next.js routes. The database URL is used only while Vercel applies pending migrations before a production build. None of these values belong in browser code or GitHub.
+Import the participant repository with Root Directory `frontend`. Put the seven variables from its participant configuration into Vercel's private environment settings: `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_DB_URL`, `SUPABASE_SCHEMA`, `SUPABASE_STORAGE_BUCKET`, `SUPABASE_STORAGE_EMAIL`, and `SUPABASE_STORAGE_PASSWORD`. Do not add administrator API keys or the administrator database connection.
 
-To apply the same migrations locally, run `bash migrate.sh`. This uses the `my-prototype` Docker image, so you do not need to install database tools on your computer. When you add a database feature, create one timestamped `.sql` file in `supabase/migrations/` and run this command before deploying.
+Vercel runs migrations before the production build. Each prototype has separate migration history in its assigned schema. The database login is also used at runtime. Local and deployed versions initially share that prototype's data; provision another workspace if separate development data is needed.
 
-When Vercel is connected to GitHub, `bash save.sh` triggers the normal Vercel deployment.
+## Removing a workshop prototype
 
-Keep `.env` private: it contains your local Supabase connection details and is already ignored by Git.
+Keep the participant configuration privately so the organiser can identify its schema and bucket. Remove files and the bucket through the Storage API, revoke the technical Auth account, drop only that prototype's schema, database role and Storage role, and remove its seven named Storage policies. Database role/password changes require existing sessions to be disconnected when immediate revocation is needed. Never drop shared `auth`, `storage` or `public` schemas.

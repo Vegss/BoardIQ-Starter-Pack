@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 !.env.*.example
+.boardiq-private/
 
 # Python
 __pycache__/

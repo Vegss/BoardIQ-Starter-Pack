@@ -1,102 +1,64 @@
 #!/usr/bin/env bash
-
-# A friendly first-run helper for the BoardIQ prototyping workshop.
+# Import a participant configuration safely, then start the workshop app.
 set -eu
-
 cd "$(dirname "$0")"
-
-echo ""
-echo "Welcome to the BoardIQ prototyping session!"
-echo "We'll connect your workspace and start the local prototype."
-echo ""
+umask 077
 
 if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
-  echo "Docker Desktop is not running yet."
-  echo "Please open the Docker Desktop app, wait until it says it is running, then run this script again."
+  echo "Open Docker Desktop, wait until it is running, then continue setup."
   exit 1
 fi
 
-value_from_env() {
-  if [ -f .env ]; then
-    sed -n "s/^$1=//p" .env | head -n 1
+participant_config="${1:-}"
+if [ -n "$participant_config" ]; then
+  if [ ! -f "$participant_config" ]; then
+    echo "The supplied private configuration file could not be found."
+    exit 1
   fi
-}
-
-needs_value() {
-  case "${1:-}" in
-    ""|your_supabase_url|your_supabase_key|paste-your-supabase-url-here|paste-your-anon-key-here) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-ask_for_value() {
-  variable_name="$1"
-  friendly_name="$2"
-  current_value="$(value_from_env "$variable_name")"
-
-  if needs_value "$current_value"; then
-    while :; do
-      printf 'Paste your Supabase %s: ' "$friendly_name" >&2
-      IFS= read -r current_value
-      if ! needs_value "$current_value"; then
-        break
-      fi
-      echo "That value looks empty. Please paste it and try again." >&2
-    done
-  fi
-
-  printf '%s' "$current_value"
-}
-
-set_env_value() {
-  variable_name="$1"
-  variable_value="$2"
   temporary_file="$(mktemp "${TMPDIR:-/tmp}/boardiq-env.XXXXXX")"
-  umask 077
-
+  trap 'rm -f "$temporary_file"' EXIT
+  # Preserve unrelated application settings. Never execute imported file contents.
   if [ -f .env ]; then
-    grep -v "^${variable_name}=" .env > "$temporary_file" || true
+    sed '/^SUPABASE_/d; /^NEXT_PUBLIC_SUPABASE_/d; /^PORT=/d; /^CORS_ORIGINS=/d; /^NEXT_PUBLIC_API_URL=/d; /^BACKEND_URL=/d' .env > "$temporary_file"
   fi
-  printf '%s=%s\n' "$variable_name" "$variable_value" >> "$temporary_file"
-  mv "$temporary_file" .env
-}
-
-ensure_env_value() {
-  variable_name="$1"
-  default_value="$2"
-  current_value="$(value_from_env "$variable_name")"
-  if [ -z "$current_value" ]; then
-    set_env_value "$variable_name" "$default_value"
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|\#*) continue ;; esac
+    case "$line" in *=*) ;; *) echo "Invalid private configuration format."; exit 1 ;; esac
+    variable_name="${line%%=*}"
+    case "$variable_name" in
+      SUPABASE_URL|SUPABASE_KEY|SUPABASE_DB_URL|SUPABASE_SCHEMA|SUPABASE_STORAGE_BUCKET|SUPABASE_STORAGE_EMAIL|SUPABASE_STORAGE_PASSWORD|BOARDIQ_PORT)
+        printf '%s\n' "$line" >> "$temporary_file" ;;
+      *) echo "The configuration contains unsupported settings. Use the file supplied by your organiser."; exit 1 ;;
+    esac
+  done < "$participant_config"
+  for required_name in SUPABASE_URL SUPABASE_KEY SUPABASE_DB_URL SUPABASE_SCHEMA SUPABASE_STORAGE_BUCKET SUPABASE_STORAGE_EMAIL SUPABASE_STORAGE_PASSWORD; do
+    if ! awk -F= -v required_name="$required_name" '$1 == required_name && length($0) > length($1) + 1 { found = 1 } END { exit !found }' "$temporary_file"; then
+      echo "The private configuration is incomplete. Ask the organiser for a complete file."
+      exit 1
+    fi
+  done
+  schema_value="$(sed -n 's/^SUPABASE_SCHEMA=//p' "$temporary_file")"
+  if [[ ! "$schema_value" =~ ^prototype_[a-z0-9_]+$ ]] || [ "${#schema_value}" -gt 63 ]; then
+    echo "A valid assigned prototype schema is required. Public schemas are not allowed."
+    exit 1
   fi
-}
-
-remove_env_value() {
-  variable_name="$1"
-  [ -f .env ] || return 0
-
-  temporary_file="$(mktemp "${TMPDIR:-/tmp}/boardiq-env.XXXXXX")"
-  umask 077
-  grep -v "^${variable_name}=" .env > "$temporary_file" || true
   mv "$temporary_file" .env
-}
+  trap - EXIT
+  chmod 600 .env
+fi
 
-supabase_url="$(ask_for_value SUPABASE_URL "project URL")"
-supabase_key="$(ask_for_value SUPABASE_KEY "anon public key")"
-supabase_db_url="$(ask_for_value SUPABASE_DB_URL "private database connection from Supabase Connect")"
-set_env_value SUPABASE_URL "$supabase_url"
-set_env_value SUPABASE_KEY "$supabase_key"
-set_env_value SUPABASE_DB_URL "$supabase_db_url"
-# Remove values from the old two-service setup. Keeping PORT=8000 would make
-# Next.js listen on the wrong port inside Docker.
-remove_env_value CORS_ORIGINS
-remove_env_value NEXT_PUBLIC_API_URL
-remove_env_value BACKEND_URL
-remove_env_value PORT
-echo ""
+if [ ! -f .env ] || ! awk -F= '$1 == "SUPABASE_SCHEMA" && $2 ~ /^prototype_[a-z0-9_]+$/ { found = 1 } END { exit !found }' .env; then
+  echo "Your organiser supplies a private prototype configuration. Ask your AI assistant to import it using bash setup.sh /path/to/prototype.env."
+  exit 1
+fi
+if awk -F= '$1 ~ /^SUPABASE_(SERVICE_ROLE_KEY|SECRET_KEY)$/ && length($2) { found = 1 } END { exit !found }' .env; then
+  echo "Move administrator API credentials into .env.admin before starting a participant app."
+  exit 1
+fi
+
 echo "Starting your BoardIQ workspace. The first start can take a few minutes."
 docker compose up --build -d my-prototype
-echo "Preparing the BoardIQ sample database."
+echo "Preparing your prototype database."
 bash migrate.sh
-echo ""
-echo "All set. Open http://localhost:3000 in your browser."
-echo "If you need help, ask your AI assistant to read AGENTS.md."
+browser_port="$(sed -n 's/^BOARDIQ_PORT=//p' .env | head -n 1)"
+echo "All set. Open http://localhost:${browser_port:-3000} in your browser."
