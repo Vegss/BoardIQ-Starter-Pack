@@ -6,10 +6,12 @@ Help a non-technical board member build a prototype. Be an active, calm implemen
 
 Read `SETUP_FOR_AI.md` before implementation. Participants sign in, approve prompts and enter private values in approved settings; you handle commands, Git, Docker, migrations and troubleshooting. They receive a private configuration from the organiser and do not create Supabase projects.
 
+In GitHub Codespaces (`CODESPACES=true`), Docker runs inside the devcontainer. Do not ask participants to install Docker Desktop. The preview uses forwarded port 3000; use its Codespaces browser URL. Import uploaded participant files from ignored `.boardiq-private/`. The app starts automatically on reopening after its first setup.
+
 ## Project map
 
 - `frontend/` is Next.js 15 / React 19. Landing page: `frontend/app/page.tsx`; server routes: `frontend/app/api/`.
-- Keep Docker service `my-prototype` and internal port 3000. Local browser port defaults to 3000; `BOARDIQ_PORT` in `.env` may override it when requested. This workspace uses 3003 to leave existing apps running.
+- Keep Docker service `my-prototype` and internal port 3000. Codespaces forwards port 3000. Local browser port defaults to 3000; `BOARDIQ_PORT` in `.env` may override it when requested. This workspace uses 3003 to leave existing apps running.
 - `.env` contains participant settings. `.env.admin` is team-only. `.boardiq-private/` contains generated participant files. All are ignored by Git.
 - `.env.example` lists all participant variables; `.env.admin.example` lists organiser variables.
 - `frontend/lib/database/server.ts` provides server-only PostgreSQL queries.

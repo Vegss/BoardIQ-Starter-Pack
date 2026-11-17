@@ -1,0 +1,29 @@
+{
+  "name": "BoardIQ Prototype",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:4": {}
+  },
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "8gb"
+  },
+  "remoteEnv": {
+    "BOARDIQ_PORT": "3000"
+  },
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Prototype",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["GitHub.copilot", "GitHub.copilot-chat"]
+    }
+  },
+  "waitFor": "postCreateCommand",
+  "postCreateCommand": "bash .devcontainer/on-create.sh",
+  "postStartCommand": "bash .devcontainer/on-start.sh"
+}

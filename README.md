@@ -4,6 +4,19 @@ Build a workshop prototype with one Next.js application named `my-prototype`. Bo
 
 ## Start with your AI assistant
 
+### GitHub Codespaces (workshop default)
+
+1. Open your own GitHub copy of this template, then choose **Code → Codespaces → Create codespace on main** (or your working branch). Wait for the environment and initial Docker build to finish; the first start can take a few minutes.
+2. Open **Copilot Chat**, select **Agent** mode and say **“Please start the BoardIQ setup.”**
+3. When the assistant asks, drag the organiser-supplied participant `.env` file into `.boardiq-private/` in the Explorer. Never paste its contents into chat. The assistant imports it and prepares your database.
+4. Open **Prototype** on port **3000** in the **Ports** tab. Keep its visibility **Private**. The assistant can also give you the forwarded HTTPS link.
+
+Git and Docker are included in the Codespace; no local installation is needed. Your GitHub account needs Codespaces quota or billing and Copilot access. The devcontainer requests at least 2 CPUs and 8 GB of memory.
+
+The app starts again automatically when you reopen the Codespace after setup. Stop the Codespace when you finish working to avoid using more compute time. Save code to GitHub before deleting a Codespace; a replacement will need the participant configuration uploaded again. Existing template copies need these repository changes before they can use this configuration.
+
+### Local setup
+
 Install Git and Docker Desktop, then open Docker Desktop. Open this project in your assistant and say **“Please start the BoardIQ setup.”** Give the assistant the location of the private configuration file supplied by the workshop organiser; never paste its contents into chat.
 
 The assistant imports the configuration, starts the app and applies migrations. You only sign in to GitHub/Vercel, approve prompts and enter private values in approved private settings.
@@ -14,7 +27,7 @@ bash save.sh "Describe your change"
 bash migrate.sh
 ```
 
-The application remains usable for design without database settings. Default local app: [http://localhost:3000](http://localhost:3000). Health check: `/api/health`. If another app uses port 3000, choose a free port with `BOARDIQ_PORT` in the local `.env`. This workspace uses `BOARDIQ_PORT=3003` and opens at [http://localhost:3003](http://localhost:3003). This local port setting does not go into Vercel.
+The application remains usable for design without database settings. Default local app: [http://localhost:3000](http://localhost:3000). Health check: `/api/health`. If another app uses port 3000, choose a free port with `BOARDIQ_PORT` in the local `.env`. This workspace uses `BOARDIQ_PORT=3003` and opens at [http://localhost:3003](http://localhost:3003). Codespaces always uses forwarded port 3000. This local port setting does not go into Vercel.
 
 ## Organiser setup
 

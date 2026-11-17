@@ -4,8 +4,17 @@ set -eu
 cd "$(dirname "$0")"
 umask 077
 
+if [ "${CODESPACES:-}" = "true" ]; then
+  # Match the devcontainer's forwarded port, even when importing local settings.
+  export BOARDIQ_PORT=3000
+fi
+
 if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
-  echo "Open Docker Desktop, wait until it is running, then continue setup."
+  if [ "${CODESPACES:-}" = "true" ]; then
+    echo "Docker is not ready in this Codespace. Run Codespaces: Rebuild Container from the Command Palette, then continue setup."
+  else
+    echo "Open Docker Desktop, wait until it is running, then continue setup."
+  fi
   exit 1
 fi
 
@@ -60,5 +69,13 @@ echo "Starting your BoardIQ workspace. The first start can take a few minutes."
 docker compose up --build -d my-prototype
 echo "Preparing your prototype database."
 bash migrate.sh
-browser_port="$(sed -n 's/^BOARDIQ_PORT=//p' .env | head -n 1)"
-echo "All set. Open http://localhost:${browser_port:-3000} in your browser."
+browser_port="${BOARDIQ_PORT:-$(sed -n 's/^BOARDIQ_PORT=//p' .env | head -n 1)}"
+if [ "${CODESPACES:-}" = "true" ]; then
+  if [ -n "${CODESPACE_NAME:-}" ]; then
+    echo "All set. Open https://${CODESPACE_NAME}-${browser_port}.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev} in your browser."
+  else
+    echo "All set. Open Prototype on port ${browser_port} from the Codespaces Ports tab."
+  fi
+else
+  echo "All set. Open http://localhost:${browser_port:-3000} in your browser."
+fi

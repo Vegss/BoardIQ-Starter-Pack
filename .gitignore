@@ -1,6 +1,7 @@
 # Local environment and secrets
 .env
 .env.*
+*.env
 !.env.example
 !.env.*.example
 .boardiq-private/
